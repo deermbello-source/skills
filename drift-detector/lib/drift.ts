@@ -1,7 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { DetectRequest, DriftReport } from './types'
-
-const client = new Anthropic()
 
 const SYSTEM_PROMPT = `You are a structural drift detector.
 
@@ -17,7 +14,9 @@ Rules:
 - Work from the CANONICAL as stated. Do not interpret it, reclassify it, or assume what it means.
 - Name the exact term from CANONICAL and the exact term from CURRENT for every instance.
 - Do not infer intent. Report only what is structurally present or absent.
-- SUBSTITUTION is the most dangerous type — flag it even when the replacement seems reasonable.`
+- SUBSTITUTION is the most dangerous type — flag it even when the replacement seems reasonable.
+
+You must respond with a JSON object only. No prose, no explanation, no markdown.`
 
 function buildPrompt(canonical: string, current: string): string {
   return `CANONICAL:
@@ -26,7 +25,7 @@ ${canonical}
 CURRENT:
 ${current}
 
-Identify every instance of structural drift. Return this exact JSON structure and nothing else:
+Return this exact JSON structure:
 {
   "drift_instances": [
     {
@@ -46,31 +45,43 @@ function parseReport(text: string): DriftReport {
   const cleaned = text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
   const report = JSON.parse(cleaned) as DriftReport
 
-  // Structural validation — every DriftInstance must have both canonical_term and current_term
   for (const instance of report.drift_instances) {
     if (!instance.canonical_term || !instance.current_term) {
       throw new Error(`DriftInstance missing required terms: ${JSON.stringify(instance)}`)
     }
   }
 
-  // Invariant: canonical_integrity must equal 100 - drift_score
-  if (report.canonical_integrity !== 100 - report.drift_score) {
-    report.canonical_integrity = 100 - report.drift_score
-  }
+  report.canonical_integrity = 100 - report.drift_score
 
   return report
 }
 
 export async function detectDrift(req: DetectRequest): Promise<DriftReport> {
-  const message = await client.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildPrompt(req.canonical, req.current) }],
+  const base = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434'
+  const model = process.env.OLLAMA_MODEL ?? 'llama3.1'
+
+  const res = await fetch(`${base}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      format: 'json',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildPrompt(req.canonical, req.current) },
+      ],
+    }),
   })
 
-  const content = message.content[0]
-  if (content.type !== 'text') throw new Error('Unexpected response type from model')
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Ollama error ${res.status}: ${text}`)
+  }
 
-  return parseReport(content.text)
+  const data = await res.json()
+  const content = data?.message?.content
+  if (typeof content !== 'string') throw new Error('Unexpected response shape from Ollama')
+
+  return parseReport(content)
 }
