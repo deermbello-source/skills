@@ -40,6 +40,14 @@ $BELL verify "x^2 = 2x" "x = 2"
 | `undecided` | not decided | do not call it verified; say so |
 | `unreadable`, `incomparable` | line did not parse, or expression vs equation | rewrite the line |
 
+Undecided steps can go to Lean with Mathlib (setup once: `scripts/setup-lean.sh`, then export `BELL_LEAN_PROJECT`):
+
+```sh
+$BELL verify --lean "x > 2" "x > 1"     # undecided -> implies, method "lean (Mathlib)"
+```
+
+Lean upgrades a step only when it proves it with no `sorry`; a step it cannot prove stays `undecided`. Division, roots and logs carry their side conditions (`d ≠ 0`, `0 ≤ r`, `0 < a`), so Lean's `x / 0 = 0` never proves a step.
+
 Syntax: `*` or implicit (`2x`, `2(x+1)`), `^`, `/`, `sqrt(..)`, `=`, `<`, `<=`, `>`, `>=`. LaTeX `\frac`, `\cdot`, `\sqrt` is accepted.
 
 ## Workflow
