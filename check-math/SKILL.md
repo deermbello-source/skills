@@ -44,6 +44,7 @@ Undecided steps can go to Lean with Mathlib (setup once: `scripts/setup-lean.sh`
 
 ```sh
 $BELL verify --lean "x > 2" "x > 1"     # undecided -> implies, method "lean (Mathlib)"
+$BELL verify --lean --rocq "sqrt(x) = 3" "x = 9"   # Rocq (coqc) takes what Lean left open
 ```
 
 Lean upgrades a step only when it proves it with no `sorry`; a step it cannot prove stays `undecided`. Division, roots and logs carry their side conditions (`d ≠ 0`, `0 ≤ r`, `0 < a`), so Lean's `x / 0 = 0` never proves a step.
