@@ -76,6 +76,12 @@ These skills help you write, refactor, and fix code.
   npx skills@latest add mattpocock/skills/scaffold-exercises
   ```
 
+- **check-math** — Check arithmetic and derivations exactly with `bell` before answering; wrong steps come back with a counterexample.
+
+  ```
+  npx skills@latest add deermbello-source/skills/check-math
+  ```
+
 ## Tooling & Setup
 
 - **setup-pre-commit** — Set up Husky pre-commit hooks with lint-staged, Prettier, type checking, and tests.
